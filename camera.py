@@ -15,7 +15,12 @@ writer = cv2.VideoWriter("video_4_4.avi", fourcc, 30, (640, 480)) # 30 프레임
 while True:
     ret, image = camera.read()
     if ret == True:
-        print("검출된 얼굴 수:", vision.analyze(image))
+        left, right, status, duration = vision.analyze(image)
+        if left != None:
+            print(f"Left: {left:.2f}, Right: {right:.2f}, Status: {status}, Time: {duration:.1f}s")
+        else:
+            print("얼굴 없음")
+
         cv2.imshow('preview', image)
         writer.write(image)    
     else:

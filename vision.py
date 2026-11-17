@@ -19,13 +19,18 @@ options = FaceLandmarkerOptions(
     output_face_blendshapes=True,
 )
 
-# 얼굴 분석 모델 생성(종료시 자동 해제)
-with FaceLandmarker.create_from_options(options) as landmarker:
-    # 얼굴 분석 모델 생성
-    landmarker = FaceLandmarker.create_from_options(options)
+# 얼굴 분석 모델 생성
+landmarker = FaceLandmarker.create_from_options(options)
+
+EYE_CLOSED_MIN = 0.45        # 눈 떴다고 보는 최소 기준값
+SLEEP_LIMIT_SEC = 2.5      # 졸음으로 판단하는 시간
+eyes_closed_time = None    # 눈 감기 시작한 시간
+
 
 # 카메라에서 받은 이미지를 분석
 def analyze(image):
+    global eyes_closed_time
+
     # OpenCV BGR 이미지를 RGB로 변환
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -37,7 +42,47 @@ def analyze(image):
 
     # 얼굴 분석 후 검출된 얼굴 수 반환
     result = landmarker.detect_for_video(mp_image, timestamp_ms)
-    return len(result.face_landmarks)
+    
+    # 얼굴 안보이는 경우  전부 초기화
+    if not result.face_blendshapes:
+        eyes_closed_time = None
+        return None, None, "NO_FACE", 0.0 
+
+    # 첫번째 얼굴
+    blendshapes = result.face_blendshapes[0]
+
+    left = None
+    right = None
+
+    for item in blendshapes:
+        if item.category_name == "eyeBlinkLeft": # 왼쪽 눈
+            left = item.score
+        elif item.category_name == "eyeBlinkRight": # 오른쪽 눈
+            right = item.score
+
+    # 양쪽눈이 전부 최소 점수 이상이면 눈 감은거
+    eyes_closed = left >= EYE_CLOSED_MIN and right >= EYE_CLOSED_MIN
+
+    now = time.monotonic()
+    duration = 0.0
+
+    if eyes_closed: # 눈 감음
+        if eyes_closed_time is None:
+            eyes_closed_time = now
+
+        duration = now - eyes_closed_time
+
+        if duration >= SLEEP_LIMIT_SEC:
+            status = "SLEEP"
+        else:
+            status = "CLOSED"
+    else: # 눈 뜸
+        eyes_closed_time = None
+        status = "NORMAL"
+
+
+    # 양쪽 눈 리턴
+    return left, right, status, duration
 
 # MediaPipe 모델 자원 해제
 def close():
