@@ -1,5 +1,6 @@
 import cv2
 import vision
+import buzzer
 
 def generate_frame():
     camera = cv2.VideoCapture(0, cv2.CAP_V4L)
@@ -13,7 +14,10 @@ def generate_frame():
                 break
 
             left, right, status, duration = vision.analyze(image)
-
+            
+            # 알람
+            buzzer.alert(status)
+            
             color = (0, 0, 255) if status == "SLEEP" else (0, 255, 0)
             # 졸음 상태
             cv2.putText( #이미지, 텍스트, 위치, 폰트, 크기, 색, 두께
@@ -42,4 +46,6 @@ def generate_frame():
                     + buffer.tobytes() + b"\r\n"
                     )
     finally:
+        camera.release()
+        buzzer.alert("NORMAL")
         camera.release()

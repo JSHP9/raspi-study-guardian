@@ -23,7 +23,7 @@ options = FaceLandmarkerOptions(
 landmarker = FaceLandmarker.create_from_options(options)
 
 EYE_CLOSED_MIN = 0.45        # 눈 떴다고 보는 최소 기준값
-SLEEP_LIMIT_SEC = 2.5      # 졸음으로 판단하는 시간
+SLEEP_LIMIT_SEC = 1.5      # 졸음으로 판단하는 시간
 eyes_closed_time = None    # 눈 감기 시작한 시간
 
 
