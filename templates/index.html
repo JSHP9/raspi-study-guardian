@@ -1,14 +1,46 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <title>Study Guardian</title>
 </head>
+
 <body>
-    <h1>Study Guardian</h1>
+    <h3>졸음 감지 모니터링</h3>
     <hr>
 
-    <h3>실시간 졸음 감지 모니터링</h3>
-    <img src="/video" width="640" height="480">
+    <div id="user">
+        <img src="/video" id="camera" width="640" height="480">
+    </div>
+    <input type="button" onclick="openPiP()" value="pip 전환">
+
+    <script>
+        async function openPiP() {
+            const camera = document.getElementById("camera");
+
+            // PiP 창 생성
+            const pipWindow =
+                await window.documentPictureInPicture.requestWindow({
+                    width: 320,
+                    height: 240
+                });
+
+            camera.style.width = "100%";
+            camera.style.height = "auto";
+
+            pipWindow.document.body.style.margin = "0";
+            pipWindow.document.body.style.overflow = "hidden";
+            pipWindow.document.body.appendChild(camera);
+
+            // PiP 종료 시 원래 화면으로 복구
+            pipWindow.addEventListener("pagehide", () => {
+                document.getElementById("user").appendChild(camera);
+                camera.style.width = "640px";
+                camera.style.height = "480px";
+            });
+        }
+    </script>
 </body>
+
 </html>

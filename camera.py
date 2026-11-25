@@ -6,15 +6,17 @@ def generate_frame():
     camera = cv2.VideoCapture(0, cv2.CAP_V4L)
     camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    camera.set(cv2.CAP_PROP_FPS, 30)
+
     try :
         while True:
             ret, image = camera.read()
 
             if not ret:
                 break
-
-            left, right, status, duration = vision.analyze(image)
             
+            left, right, status, duration = vision.analyze(image)            
+
             # 알람
             buzzer.alert(status)
             

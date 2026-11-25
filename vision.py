@@ -19,25 +19,45 @@ options = FaceLandmarkerOptions(
     output_face_blendshapes=True,
 )
 
-# 얼굴 분석 모델 생성
 landmarker = FaceLandmarker.create_from_options(options)
 
-EYE_CLOSED_MIN = 0.45        # 눈 떴다고 보는 최소 기준값
-SLEEP_LIMIT_SEC = 1.5      # 졸음으로 판단하는 시간
-eyes_closed_time = None    # 눈 감기 시작한 시간
+EYE_CLOSED_MIN = 0.45        # 졸음 판정 값
+SLEEP_LIMIT_SEC = 1.5      # 졸음 판정 시간
+eyes_closed_time = None    # 눈 감은 시작 시간
 
+LEFT_EYE = [362, 263, 386, 374]
+RIGHT_EYE = [33, 133, 159, 145]
+
+def draw_eye(image, landmarks, eye_indices, score, color):
+    height, width = image.shape[:2]
+
+    posX = []
+    posY = []
+
+    for i in eye_indices:
+        posX.append(int(landmarks[i].x * width))
+        posY.append(int(landmarks[i].y * height))
+
+    # 사각형 좌표
+    x1 = min(posX) - 5
+    y1 = min(posY) - 5
+    x2 = max(posX) + 5
+    y2 = max(posY) + 5
+
+    # 눈 주변 사각형
+    cv2.rectangle(image, (x1, y1), (x2, y2), color, 1)
+
+    # 눈 감김 점수
+    cv2.putText(image, f"{score:.2f}", (x1, y1 - 5), 0, 0.5, color, 1)
 
 # 카메라에서 받은 이미지를 분석
 def analyze(image):
     global eyes_closed_time
 
-    # OpenCV BGR 이미지를 RGB로 변환
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # MediaPipe 입력 형식으로 변환
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
 
-    # 프레임 시간 생성
     timestamp_ms = int(time.monotonic() * 1000)
 
     # 얼굴 분석 후 검출된 얼굴 수 반환
@@ -48,6 +68,7 @@ def analyze(image):
         eyes_closed_time = None
         return None, None, "NO_FACE", 0.0 
 
+    
     # 첫번째 얼굴
     blendshapes = result.face_blendshapes[0]
 
@@ -80,6 +101,12 @@ def analyze(image):
         eyes_closed_time = None
         status = "NORMAL"
 
+
+    landmarks = result.face_landmarks[0]
+    color = (0, 0, 255) if status == "SLEEP" else (0, 255, 0)
+    
+    draw_eye(image, landmarks, LEFT_EYE, left, color)
+    draw_eye(image, landmarks, RIGHT_EYE, right, color)
 
     # 양쪽 눈 리턴
     return left, right, status, duration
