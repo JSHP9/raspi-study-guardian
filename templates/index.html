@@ -3,28 +3,40 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Study Guardian</title>
+    <title>졸음 모니터링</title>
 
     <style>
+        body {
+            margin: 20px;
+        }
+
+        header {
+            text-align: center;
+        }
+
         .container {
             display: flex;
+            max-width: 1040px;
+            margin: 20px auto;
+            gap: 15px;
         }
 
         main {
-            flex: 1;
+            flex: 2;
+            min-width: 0;
             border: 1px solid black;
-            padding: 20px;
+            padding: 15px;
         }
 
         aside {
-            width: 350px;
+            flex: 1;
+            min-width: 0;
             border: 1px solid black;
-            padding: 20px;
+            padding: 15px;
         }
 
         #camera {
             width: 100%;
-            max-width: 640px;
             height: auto;
             display: block;
         }
@@ -33,25 +45,23 @@
             font-size: 50px;
             text-align: center;
         }
+
+        #wakeTime {
+            display: none;
+        }
     </style>
 </head>
 
 <body>
     <header>
-        <h2>Study Guardian</h2>
+        <h1>졸음 감지 시스템</h1>
         <hr>
     </header>
 
     <div class="container">
         <main>
-            <h3>실시간 졸음 감지</h3>
-
-            <div id="user">
-                <img src="/video" id="camera">
-            </div>
-
-            <br>
-            <input type="button" onclick="openPiP()" value="PiP 전환">
+            <h3>모니터링</h3>
+            <img src="/video" id="camera">
         </main>
 
         <aside>
@@ -66,6 +76,19 @@
                 <h3>상태 메시지</h3>
                 <p id="message">졸음 정보를 확인하고 있습니다.</p>
             </section>
+
+            <section id="wakeTime">
+                <hr>
+                <h3>램 수면 계산</h3>
+
+                <p id="sleepTime"></p>
+                <p id="wake1"></p>
+                <p id="wake2"></p>
+
+                <p>
+                    지금 잠들었을 때를 기준으로 계산한 시간
+                </p>
+            </section>
         </aside>
     </div>
 
@@ -73,6 +96,10 @@
         // 졸음 횟수 및 상태 메시지 갱신
         async function updateStatus() {
             const response = await fetch("/status");
+
+            if (!response.ok)
+                return;
+
             const cnt = Number(await response.text());
 
             document.getElementById("count").innerText = cnt + "회";
@@ -83,47 +110,56 @@
                 message = "아직 졸음이 감지되지 않았습니다.";
             }
             else if (cnt == 1) {
-                message = "졸음이 감지되었습니다. 집중력을 확인하세요.";
+                message = "졸음이 감지되었습니다. 잠시 쉬는걸 권장합니다.";
             }
             else if (cnt == 2) {
-                message = "졸음이 반복되고 있습니다. 잠시 휴식을 권장합니다.";
+                message = "졸음이 반복되고 있습니다. 휴식을 권장합니다.";
             }
             else {
-                message = "학습을 중단하고 충분한 수면을 취하는 것을 권장합니다.";
+                message = "하던 일을 중단하고 충분한 수면을 취하는 것을 권장합니다.";
             }
 
             document.getElementById("message").innerText = message;
+
+            // 졸음 3회 이상이면 예상 기상 시간 표시
+            if (cnt >= 3) {
+                document.getElementById("wakeTime").style.display = "block";
+                calculateWakeTime();
+            }
+            else {
+                document.getElementById("wakeTime").style.display = "none";
+            }
+        }
+
+        // 예상 기상 시간 계산
+        function calculateWakeTime() {
+            let now = new Date();
+
+            // 90분 수면 주기 5회, 6회
+            let wake1 = new Date(now.getTime() + 450 * 60000);
+            let wake2 = new Date(now.getTime() + 540 * 60000);
+
+            document.getElementById("sleepTime").innerText =
+                "현재 시간: " + formatTime(now);
+
+            document.getElementById("wake1").innerText =
+                "7시간 30분 수면: " + formatTime(wake1);
+
+            document.getElementById("wake2").innerText =
+                "9시간 수면: " + formatTime(wake2);
+        }
+
+        // 날짜 및 시간 출력 형식
+        function formatTime(time) {
+            return time.toLocaleString("ko-KR", {
+                hour: "2-digit",
+                minute: "2-digit"
+            });
         }
 
         // 최초 실행 및 1초마다 갱신
         updateStatus();
         setInterval(updateStatus, 1000);
-
-        async function openPiP() {
-            const camera = document.getElementById("camera");
-
-            // PiP 창 생성
-            const pipWindow =
-                await window.documentPictureInPicture.requestWindow({
-                    width: 320,
-                    height: 240
-                });
-
-            camera.style.width = "100%";
-            camera.style.height = "auto";
-
-            pipWindow.document.body.style.margin = "0";
-            pipWindow.document.body.style.overflow = "hidden";
-            pipWindow.document.body.appendChild(camera);
-
-            // PiP 종료 시 원래 화면으로 복구
-            pipWindow.addEventListener("pagehide", () => {
-                document.getElementById("user").appendChild(camera);
-                camera.style.width = "640px";
-                camera.style.height = "480px";
-            });
-        }
-
     </script>
 </body>
 
