@@ -3,53 +3,74 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>졸음 모니터링</title>
+    <title>졸음 감지 시스템</title>
 
     <style>
         body {
-            margin: 20px;
+            margin: 30px;
         }
 
         header {
             text-align: center;
         }
 
-        .container {
-            display: flex;
-            max-width: 1040px;
-            margin: 20px auto;
-            gap: 15px;
-        }
-
         main {
-            flex: 2;
-            min-width: 0;
-            border: 1px solid black;
-            padding: 15px;
+            max-width: 1800px;
+            margin: 30px auto;
         }
 
-        aside {
-            flex: 1;
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        section {
+            border: 1px solid #aaa;
+            padding: 20px;
             min-width: 0;
-            border: 1px solid black;
-            padding: 15px;
         }
 
         #camera {
             width: 100%;
-            height: auto;
             display: block;
         }
 
+        .chart-area {
+            position: relative;
+            height: 380px;
+        }
+
+        .result {
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #aaa;
+            padding: 15px;
+        }
+
+        th {
+            width: 25%;
+        }
+
         #count {
-            font-size: 50px;
-            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
         }
 
         #wakeTime {
             display: none;
         }
     </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/chart.js"></script>
 </head>
 
 <body>
@@ -58,49 +79,70 @@
         <hr>
     </header>
 
-    <div class="container">
-        <main>
-            <h3>모니터링</h3>
-            <img src="/video" id="camera">
-        </main>
-
-        <aside>
-            <section>
-                <h3>누적 졸음 횟수</h3>
-                <p id="count">{{ cnt }}회</p>
-            </section>
-
-            <hr>
+    <main>
+        <div class="container">
 
             <section>
-                <h3>상태 메시지</h3>
-                <p id="message">졸음 정보를 확인하고 있습니다.</p>
+                <h2>모니터링</h2>
+                <img src="/video" id="camera" alt="카메라 영상">
             </section>
 
-            <section id="wakeTime">
-                <hr>
-                <h3>램 수면 계산</h3>
+            <section>
+                <h2>눈 감김 점수</h2>
 
-                <p id="sleepTime"></p>
-                <p id="wake1"></p>
-                <p id="wake2"></p>
+                <div class="chart-area">
+                    <canvas id="canvas"></canvas>
+                </div>
 
-                <p>
-                    지금 잠들었을 때를 기준으로 계산한 시간
-                </p>
+                <p>점수가 1에 가까울수록 눈 감김 정도가 높습니다.</p>
+                <p>양쪽 눈의 점수가 모두 0.45 이상이면 눈을 감은 것으로 판단합니다.</p>
             </section>
-        </aside>
-    </div>
+
+        </div>
+
+        <section class="result">
+            <h2>졸음 감지 결과</h2>
+
+            <table>
+                <tr>
+                    <th>누적 졸음 횟수</th>
+                    <td id="count">{{ cnt }}회</td>
+                </tr>
+
+                <tr>
+                    <th>상태 메시지</th>
+                    <td id="message">
+                        졸음 정보를 확인하고 있습니다.
+                    </td>
+                </tr>
+
+                <tr id="wakeTime">
+                    <th>추천 기상 시간</th>
+                    <td>
+                        <p id="sleepTime"></p>
+                        <p id="wake1"></p>
+                        <p id="wake2"></p>
+                        <p>지금 잠들었을 때를 기준으로 계산한 참고 시간입니다.</p>
+                    </td>
+                </tr>
+            </table>
+        </section>
+    </main>
 
     <script>
-        // 졸음 횟수 및 상태 메시지 갱신
+        // 졸음 정보 갱신
         async function updateStatus() {
             const response = await fetch("/status");
 
             if (!response.ok)
                 return;
 
-            const cnt = Number(await response.text());
+            const text = await response.text();
+            const data = text.split(",");
+
+            const left = data[0] == "None" ? null : Number(data[0]);
+            const right = data[1] == "None" ? null : Number(data[1]);
+            const cnt = Number(data[2]);
 
             document.getElementById("count").innerText = cnt + "회";
 
@@ -110,10 +152,10 @@
                 message = "아직 졸음이 감지되지 않았습니다.";
             }
             else if (cnt == 1) {
-                message = "졸음이 감지되었습니다. 잠시 쉬는걸 권장합니다.";
+                message = "졸음이 감지되었습니다. 잠시 쉬는 걸 권장합니다.";
             }
             else if (cnt == 2) {
-                message = "졸음이 반복되고 있습니다. 휴식을 권장합니다.";
+                message = "자주 졸고 있습니다. 휴식을 권장합니다.";
             }
             else {
                 message = "하던 일을 중단하고 충분한 수면을 취하는 것을 권장합니다.";
@@ -121,21 +163,25 @@
 
             document.getElementById("message").innerText = message;
 
-            // 졸음 3회 이상이면 예상 기상 시간 표시
+            // 졸음 3회 이상이면 추천 기상 시간 표시
             if (cnt >= 3) {
-                document.getElementById("wakeTime").style.display = "block";
+                document.getElementById("wakeTime").style.display = "table-row";
                 calculateWakeTime();
             }
             else {
                 document.getElementById("wakeTime").style.display = "none";
             }
+
+            // 그래프 갱신
+            if (typeof chart !== "undefined" && chart !== null) {
+                addChartData(left, right);
+            }
         }
 
-        // 예상 기상 시간 계산
+        // 추천 기상 시간 계산
         function calculateWakeTime() {
             let now = new Date();
 
-            // 90분 수면 주기 5회, 6회
             let wake1 = new Date(now.getTime() + 450 * 60000);
             let wake2 = new Date(now.getTime() + 540 * 60000);
 
@@ -149,7 +195,7 @@
                 "9시간 수면: " + formatTime(wake2);
         }
 
-        // 날짜 및 시간 출력 형식
+        // 시간 출력 형식
         function formatTime(time) {
             return time.toLocaleString("ko-KR", {
                 hour: "2-digit",
@@ -160,6 +206,9 @@
         // 최초 실행 및 1초마다 갱신
         updateStatus();
         setInterval(updateStatus, 1000);
+
+        // 그래프 생성
+        drawChart();
     </script>
 </body>
 

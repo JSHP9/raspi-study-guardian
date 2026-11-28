@@ -18,7 +18,8 @@ def video():
 
 @app.route('/status')
 def status():
-    return str(vision.cnt)
+    left, right, cnt = camera.latest_data
+    return f"{left},{right},{cnt}"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080, debug=False)
