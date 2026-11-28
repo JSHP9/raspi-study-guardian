@@ -27,15 +27,21 @@ eyes_closed_time = None    # 눈 감은 시작 시간
 
 LEFT_EYE = [362, 263, 386, 374]
 RIGHT_EYE = [33, 133, 159, 145]
+cnt = 0
+sleep_counted = False
+
+# 그래프에 사용할 졸음 발생 시간
+start_time = time.monotonic()
+sleep_events = []
 
 def draw_eye(image, landmarks, eye_indices, score, color):
     height, width = image.shape[:2]
-
     posX = []
     posY = []
+    global cnt
 
     for i in eye_indices:
-        posX.append(int(landmarks[i].x * width))
+        posX.append(int(landmarks[i].x * width))    
         posY.append(int(landmarks[i].y * height))
 
     # 사각형 좌표
@@ -50,9 +56,9 @@ def draw_eye(image, landmarks, eye_indices, score, color):
     # 눈 감김 점수
     cv2.putText(image, f"{score:.2f}", (x1, y1 - 5), 0, 0.5, color, 1)
 
-# 카메라에서 받은 이미지를 분석
+# 카메라에서 받은 이미지 분석
 def analyze(image):
-    global eyes_closed_time
+    global eyes_closed_time, cnt, sleep_counted
 
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -62,13 +68,13 @@ def analyze(image):
 
     # 얼굴 분석 후 검출된 얼굴 수 반환
     result = landmarker.detect_for_video(mp_image, timestamp_ms)
-    
+
     # 얼굴 안보이는 경우  전부 초기화
     if not result.face_blendshapes:
         eyes_closed_time = None
-        return None, None, "NO_FACE", 0.0 
+        return None, None, "NO_FACE", 0.0, cnt
 
-    
+
     # 첫번째 얼굴
     blendshapes = result.face_blendshapes[0]
 
@@ -87,7 +93,7 @@ def analyze(image):
     now = time.monotonic()
     duration = 0.0
 
-    if eyes_closed: # 눈 감음
+    if eyes_closed:
         if eyes_closed_time is None:
             eyes_closed_time = now
 
@@ -95,21 +101,27 @@ def analyze(image):
 
         if duration >= SLEEP_LIMIT_SEC:
             status = "SLEEP"
+
+            if not sleep_counted:
+                cnt += 1
+                sleep_counted = True
+                sleep_events.append(now)
         else:
             status = "CLOSED"
-    else: # 눈 뜸
+    else:
         eyes_closed_time = None
+        sleep_counted = False
         status = "NORMAL"
 
 
     landmarks = result.face_landmarks[0]
     color = (0, 0, 255) if status == "SLEEP" else (0, 255, 0)
-    
+
     draw_eye(image, landmarks, LEFT_EYE, left, color)
     draw_eye(image, landmarks, RIGHT_EYE, right, color)
 
     # 양쪽 눈 리턴
-    return left, right, status, duration
+    return left, right, status, duration, cnt
 
 # MediaPipe 모델 자원 해제
 def close():

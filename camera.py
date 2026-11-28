@@ -14,12 +14,12 @@ def generate_frame():
 
             if not ret:
                 break
-            
-            left, right, status, duration = vision.analyze(image)            
 
+            left, right, status, duration, sleep_cnt = vision.analyze(image)
+        
             # 알람
-            buzzer.alert(status)
-            
+            buzzer.alert(status, sleep_cnt)
+
             color = (0, 0, 255) if status == "SLEEP" else (0, 255, 0)
             # 졸음 상태
             cv2.putText( #이미지, 텍스트, 위치, 폰트, 크기, 색, 두께
@@ -37,7 +37,7 @@ def generate_frame():
 
             # png로 인코딩
             success, buffer = cv2.imencode(".png", image)
-            
+
             if not success:
                 continue
 
@@ -49,5 +49,5 @@ def generate_frame():
                     )
     finally:
         camera.release()
-        buzzer.alert("NORMAL")
-        camera.release()
+        buzzer.alert("NORMAL", 0)
+        vision.eyes_closed_time = None

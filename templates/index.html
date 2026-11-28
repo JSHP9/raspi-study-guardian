@@ -4,18 +4,101 @@
 <head>
     <meta charset="UTF-8">
     <title>Study Guardian</title>
+
+    <style>
+        .container {
+            display: flex;
+        }
+
+        main {
+            flex: 1;
+            border: 1px solid black;
+            padding: 20px;
+        }
+
+        aside {
+            width: 350px;
+            border: 1px solid black;
+            padding: 20px;
+        }
+
+        #camera {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            display: block;
+        }
+
+        #count {
+            font-size: 50px;
+            text-align: center;
+        }
+    </style>
 </head>
 
 <body>
-    <h3>졸음 감지 모니터링</h3>
-    <hr>
+    <header>
+        <h2>Study Guardian</h2>
+        <hr>
+    </header>
 
-    <div id="user">
-        <img src="/video" id="camera" width="640" height="480">
+    <div class="container">
+        <main>
+            <h3>실시간 졸음 감지</h3>
+
+            <div id="user">
+                <img src="/video" id="camera">
+            </div>
+
+            <br>
+            <input type="button" onclick="openPiP()" value="PiP 전환">
+        </main>
+
+        <aside>
+            <section>
+                <h3>누적 졸음 횟수</h3>
+                <p id="count">{{ cnt }}회</p>
+            </section>
+
+            <hr>
+
+            <section>
+                <h3>상태 메시지</h3>
+                <p id="message">졸음 정보를 확인하고 있습니다.</p>
+            </section>
+        </aside>
     </div>
-    <input type="button" onclick="openPiP()" value="pip 전환">
 
     <script>
+        // 졸음 횟수 및 상태 메시지 갱신
+        async function updateStatus() {
+            const response = await fetch("/status");
+            const cnt = Number(await response.text());
+
+            document.getElementById("count").innerText = cnt + "회";
+
+            let message;
+
+            if (cnt == 0) {
+                message = "아직 졸음이 감지되지 않았습니다.";
+            }
+            else if (cnt == 1) {
+                message = "졸음이 감지되었습니다. 집중력을 확인하세요.";
+            }
+            else if (cnt == 2) {
+                message = "졸음이 반복되고 있습니다. 잠시 휴식을 권장합니다.";
+            }
+            else {
+                message = "학습을 중단하고 충분한 수면을 취하는 것을 권장합니다.";
+            }
+
+            document.getElementById("message").innerText = message;
+        }
+
+        // 최초 실행 및 1초마다 갱신
+        updateStatus();
+        setInterval(updateStatus, 1000);
+
         async function openPiP() {
             const camera = document.getElementById("camera");
 
@@ -40,6 +123,7 @@
                 camera.style.height = "480px";
             });
         }
+
     </script>
 </body>
 
